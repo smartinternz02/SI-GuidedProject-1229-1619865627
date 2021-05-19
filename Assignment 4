@@ -1,0 +1,44 @@
+#include "BluetoothSerial.h"
+#define trig 5
+#define echo 4
+#define pump 2
+BluetoothSerial SerialBT;
+void setup() {
+  // put your setup code here, to run once:
+ pinMode(pump,OUTPUT);
+ Serial.begin(115200);
+ SerialBT.begin("ESP32test");
+ Serial.println("bluetooth started");
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  pinMode(trig,OUTPUT);
+  pinMode(echo,INPUT);
+  digitalWrite(trig,LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig,HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig,LOW);
+  int duration = pulseIn(echo,HIGH);
+  int distance;
+  distance = 0.034 *duration/2 ;
+  SerialBT.write(distance);
+  if(distance <= 120 && distance >= 50)
+  {
+    digitalWrite(pump,HIGH); 
+  }
+  else if(SerialBT.readString()== "on")
+  {
+   digitalWrite(pump,HIGH);
+  }
+  else if(SerialBT.readString()=="off")
+  {
+   digitalWrite(pump,LOW);
+  }
+  else
+  {
+    
+   }
+   
+}
