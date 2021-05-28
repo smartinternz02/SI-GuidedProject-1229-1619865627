@@ -1,0 +1,133 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#define trig 0
+#define echo 2
+#define LDR 15
+int ldr;
+String command;
+String data="";
+
+const char* ssid = "Kompella-4G";//your wifi ssid
+const char* password = "agniparvatam";//your password
+
+#define ORG "vsfrlk"
+#define DEVICE_TYPE "ESP32"
+#define DEVICE_ID "50919"
+#define TOKEN "12345678" //  Authentication Token OF THE DEVICE
+
+const char publishTopic[] = "iot-2/evt/Data/fmt/json";
+char server[] = ORG ".messaging.internetofthings.ibmcloud.com";
+char topic[] = "iot-2/cmd/home/fmt/String";// cmd  REPRESENT command type AND COMMAND IS TEST OF FORMAT STRING
+char authMethod[] = "use-token-auth";
+char token[] = TOKEN;
+char clientId[] = "d:" ORG ":" DEVICE_TYPE ":" DEVICE_ID;
+
+
+WiFiClient wifiClient;
+PubSubClient client(server,1883,wifiClient);
+
+int publishInterval = 5000; // 30 seconds
+long lastPublishMillis;
+void publishData();
+
+void setup() {
+  
+  Serial.begin(115200);
+  Serial.println(); 
+  wifiConnect();
+  mqttConnect();
+  pinMode(LDR,INPUT);
+}
+
+void loop() {
+
+
+ if (millis() - lastPublishMillis > publishInterval)
+  {
+    publishData();
+    lastPublishMillis = millis();
+  }
+  
+  if (!client.loop()) {
+    mqttConnect();
+  }
+  ldr = analogRead(LDR);
+}
+
+void wifiConnect() {
+  Serial.print("Connecting to "); 
+  Serial.print(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.print("WiFi connected, IP address: "); 
+  Serial.println(WiFi.localIP());
+}
+
+void mqttConnect() {
+  if (!client.connected()) 
+  {
+    Serial.print("Reconnecting MQTT client to "); 
+    Serial.println(server);
+    while (!client.connect(clientId, authMethod, token)) {
+      Serial.print(".");
+      delay(500);
+    }
+    
+    initManagedDevice();
+    Serial.println();
+  }
+}
+
+void initManagedDevice() {
+  if (client.subscribe(topic)) {
+   
+    Serial.println("subscribe to cmd OK");
+  } 
+  else {
+    Serial.println("subscribe to cmd FAILED");
+  }
+}
+
+void publishData() 
+{
+  pinMode(trig,OUTPUT);
+  
+  digitalWrite(trig,LOW);
+  delayMicroseconds(10);
+  digitalWrite(trig,HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig,LOW);
+
+  pinMode(echo,INPUT);
+  int duration = pulseIn(echo,HIGH);  
+  int distance;
+  distance = duration*0.034/2 ;
+
+  
+  ldr = analogRead(LDR);
+
+  Serial.print("distance:");
+  Serial.println(distance);
+  Serial.print("Light intensity:");
+  Serial.println(ldr);
+  
+  String payload = "{\"d\":{\"distance\":";
+  payload += distance;
+  payload += ",""\"Light\":";
+  payload +=  ldr;
+  payload += "}}";
+
+
+  Serial.print("\n");
+  Serial.print("Sending payload: "); 
+  Serial.println(payload);
+
+  if (client.publish(publishTopic, (char*) payload.c_str())) {
+    Serial.println("Publish OK");
+  } else {
+    Serial.println("Publish FAILED");
+  }
+}
